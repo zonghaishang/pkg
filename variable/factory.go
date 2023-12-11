@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-//nolint
+// nolint
 package variable
 
 import (
@@ -51,6 +51,13 @@ var (
 	invalidVariableIndex    = errors.New("get variable support name index or variable directly")
 	errNoGetProtocol        = errors.New("no way to get protocol, get protocol resource variable failed")
 )
+
+var indexValPool = &sync.Pool{
+	New: func() interface{} {
+		val := make([]IndexedValue, len(indexedVariables))
+		return val
+	},
+}
 
 // ResetVariableForTest is a test function for reset the variables.
 // DONOT call it in any non-test functions
@@ -138,7 +145,7 @@ func Override(variable Variable) error {
 
 	// check index
 	if newIndexer, ok := variable.(Indexer); ok {
-		if oldIndexer, ok := oldVar.(Indexer); ok {  // reuse old index
+		if oldIndexer, ok := oldVar.(Indexer); ok { // reuse old index
 			index := oldIndexer.GetIndex()
 			newIndexer.SetIndex(index)
 
@@ -152,7 +159,6 @@ func Override(variable Variable) error {
 	}
 	return nil
 }
-
 
 // Register a new variable with prefix
 func RegisterPrefix(prefix string, variable Variable) error {
@@ -184,10 +190,14 @@ func OverridePrefix(prefix string, variable Variable) error {
 	return nil
 }
 
-//nolint
+// nolint
 func NewVariableContext(ctx context.Context) context.Context {
-	// TODO: sync.Pool reuse
-	values := make([]IndexedValue, len(indexedVariables)) // TODO: pre-alloc buffer for runtime variable
+
+	// recycle should be at downStream.giveStream()
+	values := indexValPool.Get().([]IndexedValue)
+	for _, val := range values {
+		val.Valid = false
+	}
 
 	// Inherit index variables from parent
 	v := mosnctx.Get(ctx, mosnctx.KeyVariables)
