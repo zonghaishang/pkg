@@ -207,3 +207,12 @@ func NewVariableContext(ctx context.Context) context.Context {
 
 	return mosnctx.WithValue(mosnctx.Clone(ctx), mosnctx.KeyVariables, values)
 }
+
+func GiveIndexVariables(ctx context.Context) {
+	if ctx != nil {
+		v := mosnctx.Get(ctx, mosnctx.KeyVariables)
+		if v != nil {
+			indexValPool.Put(v)
+		}
+	}
+}
